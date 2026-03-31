@@ -7,12 +7,6 @@ async function load() {
   loading.value = false
 }
 
-async function deleteList(id: string, name: string) {
-  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return
-  await $fetch(`/api/lists/${id}`, { method: 'DELETE' })
-  await load()
-}
-
 onMounted(load)
 </script>
 
@@ -55,9 +49,6 @@ onMounted(load)
             </div>
             <div class="flex gap-sm">
               <NuxtLink :to="`/lists/${list._id}`" class="btn btn--ghost btn--sm">Edit</NuxtLink>
-              <button class="btn btn--danger btn--sm" @click="deleteList(list._id, list.name)">
-                Delete
-              </button>
             </div>
           </div>
 
