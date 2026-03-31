@@ -192,6 +192,9 @@ function isMyWrongAnswer(opt: any) {
     <!-- ── JOIN ─────────────────────────────────────────────────── -->
     <div v-if="screen === 'join'" style="padding-top:3rem;">
       <div class="text-center" style="margin-bottom:2.5rem;">
+        <div style="display:flex; justify-content:center; margin-bottom:1.25rem;">
+          <OwlMascot size="md" mood="excited" message="Enter your name and hop in!" />
+        </div>
         <div class="game-title">Blind Ranking</div>
         <div class="badge badge--cyan mt-md" style="font-size:1.1rem;padding:0.4rem 1.2rem;letter-spacing:0.15em;">
           {{ code }}
@@ -215,8 +218,10 @@ function isMyWrongAnswer(opt: any) {
     <!-- ── LOBBY ─────────────────────────────────────────────────── -->
     <div v-if="screen === 'lobby'" style="padding-top:2rem;">
       <div class="card text-center" style="margin-bottom:1.25rem;">
-        <div style="font-size:2.5rem;margin-bottom:0.75rem;">⏳</div>
-        <h2>Waiting for host...</h2>
+        <div style="display:flex; justify-content:center; margin-bottom:0.75rem;">
+          <OwlMascot size="sm" mood="thinking" message="Waiting for the host..." />
+        </div>
+        <h2>Almost time!</h2>
         <div class="waiting-dots mt-md" style="font-size:1.5rem;"><span>●</span><span>●</span><span>●</span></div>
       </div>
       <div class="card">
@@ -248,20 +253,26 @@ function isMyWrongAnswer(opt: any) {
         </div>
       </div>
 
-      <!-- Current item card -->
-      <div v-if="currentItem" class="item-card" style="margin-bottom:1.25rem;">
-        <div class="item-number">Where does this rank for YOU?</div>
-        <img v-if="currentItem.imageUrl" :src="currentItem.imageUrl" class="item-card__image" />
-        <div class="item-card__text">{{ currentItem.text }}</div>
-        <div style="margin-top:1rem;">
-          <span v-if="!hasPlacedThisRound" class="badge badge--yellow">Tap a slot below</span>
-          <span v-else class="badge badge--green">Placed! ✓</span>
+      <!-- Current item -->
+      <div v-if="currentItem" style="margin-bottom:1.25rem;">
+        <div style="display:flex; justify-content:center; margin-bottom:0.75rem;">
+          <OwlMascot
+            size="lg"
+            :mood="hasPlacedThisRound ? 'celebrate' : 'excited'"
+            :message="hasPlacedThisRound ? 'Locked in! ✓' : currentItem.text"
+          />
+        </div>
+        <img v-if="currentItem.imageUrl" :src="currentItem.imageUrl" class="item-card__image" style="width:100%;max-height:200px;object-fit:cover;border-radius:14px;margin-bottom:0.75rem;" />
+        <div class="text-center">
+          <span v-if="!hasPlacedThisRound" class="badge badge--yellow">Tap a slot below to rank it</span>
+          <span v-else class="badge badge--green">Nice! Pick the next slot while you wait</span>
         </div>
       </div>
 
       <div v-else style="padding:2rem;text-align:center;color:var(--text-dim);">
-        <div class="waiting-dots"><span>●</span><span>●</span><span>●</span></div>
-        <p class="mt-sm">Waiting for next item...</p>
+        <div style="display:flex; justify-content:center; margin-bottom:0.5rem;">
+          <OwlMascot size="sm" mood="thinking" message="Next item incoming..." />
+        </div>
       </div>
 
       <!-- Slots -->
@@ -296,7 +307,9 @@ function isMyWrongAnswer(opt: any) {
 
     <!-- ── ROUND COMPLETE (last item done, waiting for social) ────── -->
     <div v-if="screen === 'round-complete'" class="text-center" style="padding-top:3rem;">
-      <div style="font-size:4rem;margin-bottom:1rem;">🎉</div>
+      <div style="display:flex; justify-content:center; margin-bottom:1rem;">
+        <OwlMascot size="md" mood="celebrate" message="Hoot hoot! Rankings locked in!" />
+      </div>
       <h2>You ranked everything!</h2>
       <p class="text-muted mt-sm">Waiting for the host to start the social deduction round...</p>
       <div class="waiting-dots mt-lg" style="font-size:1.5rem;"><span>●</span><span>●</span><span>●</span></div>
@@ -318,40 +331,6 @@ function isMyWrongAnswer(opt: any) {
       </div>
     </div>
 
-    <!-- ── SOCIAL STATS OVERVIEW ─────────────────────────────────── -->
-    <div v-if="screen === 'social-stats'" style="padding-top:1rem;">
-      <div class="text-center" style="margin-bottom:1.5rem;">
-        <div style="font-size:2.5rem;margin-bottom:0.5rem;">📊</div>
-        <h2>Rankings Done!</h2>
-        <p class="text-muted mt-sm">Social deduction round starting soon...</p>
-      </div>
-
-      <div v-if="socialStats?.mostControversial" class="card" style="margin-bottom:1rem;text-align:center;">
-        <p class="text-muted" style="font-size:0.8rem;margin-bottom:0.3rem;">Most Controversial</p>
-        <strong style="font-size:1.2rem;">🔥 "{{ socialStats.mostControversial.item.text }}"</strong>
-      </div>
-
-      <!-- My hot takes -->
-      <div v-if="socialStats?.players" class="card">
-        <h3 style="margin-bottom:0.75rem;">Your Hot Takes</h3>
-        <div v-for="pStat in socialStats.players.filter((p:any)=>p.playerId===playerId)" :key="pStat.playerId">
-          <div v-if="pStat.hotTakes?.length" style="display:flex;flex-direction:column;gap:0.5rem;">
-            <div v-for="take in pStat.hotTakes" :key="take.item.text"
-              style="padding:0.6rem 0.8rem;background:var(--surface);border-radius:10px;font-size:0.9rem;">
-              You ranked <strong>"{{ take.item.text }}"</strong> at
-              <span style="color:var(--accent);font-weight:700;">#{{ take.playerRank }}</span>
-              · group avg: <span style="color:var(--text-muted);">#{{ take.groupAvg }}</span>
-            </div>
-          </div>
-          <p v-else class="text-muted" style="font-size:0.9rem;">You ranked pretty close to the group! No big hot takes.</p>
-        </div>
-      </div>
-
-      <p class="text-center text-muted mt-lg" style="font-size:0.85rem;">
-        Get ready — {{ totalQuestions }} social deduction questions incoming!
-      </p>
-    </div>
-
     <!-- ── SOCIAL QUESTION ───────────────────────────────────────── -->
     <div v-if="screen === 'social-question'" style="padding-top:1rem;">
       <div class="flex-between" style="margin-bottom:1rem;">
@@ -359,12 +338,16 @@ function isMyWrongAnswer(opt: any) {
         <span class="text-muted" style="font-size:0.85rem;">{{ questionNumber }} / {{ totalQuestions }}</span>
       </div>
 
-      <div class="progress-bar" style="margin-bottom:1.25rem;">
+      <div class="progress-bar" style="margin-bottom:1.5rem;">
         <div class="progress-bar__fill" :style="{width: (questionNumber/totalQuestions*100)+'%'}"></div>
       </div>
 
-      <div class="card" style="margin-bottom:1.25rem;text-align:center;padding:1.5rem;">
-        <h2 style="font-size:clamp(1.1rem,4vw,1.5rem);line-height:1.3;">{{ currentQuestion?.prompt }}</h2>
+      <div style="display:flex; justify-content:center; margin-bottom:1.5rem;">
+        <OwlMascot
+          size="lg"
+          mood="thinking"
+          :message="currentQuestion?.prompt"
+        />
       </div>
 
       <div style="display:flex;flex-direction:column;gap:0.6rem;">
@@ -389,7 +372,9 @@ function isMyWrongAnswer(opt: any) {
 
     <!-- ── SOCIAL WAITING (after submitting answer) ──────────────── -->
     <div v-if="screen === 'social-waiting'" class="text-center" style="padding-top:3rem;">
-      <div style="font-size:3rem;margin-bottom:1rem;">✅</div>
+      <div style="display:flex; justify-content:center; margin-bottom:1rem;">
+        <OwlMascot size="md" mood="shush" message="Shhh... waiting for the reveal!" />
+      </div>
       <h2>Answer locked in!</h2>
       <p class="text-muted mt-sm">Waiting for the host to reveal...</p>
       <div class="waiting-dots mt-lg" style="font-size:1.5rem;"><span>●</span><span>●</span><span>●</span></div>
@@ -403,13 +388,14 @@ function isMyWrongAnswer(opt: any) {
 
     <!-- ── SOCIAL RESULT (after answer revealed) ─────────────────── -->
     <div v-if="screen === 'social-result'" style="padding-top:2rem;">
-      <div v-if="pointsEarned > 0" class="card text-center" style="margin-bottom:1.25rem;border-color:var(--green);background:rgba(16,185,129,0.08);">
+      <div v-if="selectedAnswer === currentQuestion?.correctAnswerId" class="card text-center" style="margin-bottom:1.25rem;border-color:var(--green);background:rgba(16,185,129,0.08);">
         <div style="font-size:3rem;margin-bottom:0.5rem;">🎯</div>
         <h2 style="color:var(--green);">Correct! +{{ pointsEarned }} pts</h2>
       </div>
       <div v-else class="card text-center" style="margin-bottom:1.25rem;border-color:var(--red);background:rgba(239,68,68,0.05);">
         <div style="font-size:3rem;margin-bottom:0.5rem;">❌</div>
         <h2>Not quite!</h2>
+        <p v-if="pointsEarned > 0" class="mt-sm" style="color:var(--yellow); font-weight:600;">+{{ pointsEarned }} pts (mystery bonus 🦉)</p>
       </div>
 
       <div class="card" style="margin-bottom:1.25rem;">
@@ -449,6 +435,13 @@ function isMyWrongAnswer(opt: any) {
 
     <!-- ── RESULTS ───────────────────────────────────────────────── -->
     <div v-if="screen === 'results'" style="padding-top:1rem;">
+      <div style="display:flex; justify-content:center; margin-bottom:1.25rem;">
+        <OwlMascot
+          size="md"
+          mood="celebrate"
+          :message="myRank === 1 ? 'Wisest of them all! 🦉' : myRank <= 3 ? 'Solid ranking, wise one!' : 'The owl is proud of you!'"
+        />
+      </div>
       <div v-if="myResult" class="card card--glow text-center" style="margin-bottom:1.5rem;">
         <div style="font-size:3rem;margin-bottom:0.5rem;">
           {{ myRank === 1 ? '🥇' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '🎮' }}
@@ -471,6 +464,27 @@ function isMyWrongAnswer(opt: any) {
             </div>
             <div class="lb-score">{{ r.socialScore }}</div>
           </div>
+        </div>
+      </div>
+
+      <!-- Hot takes + most controversial -->
+      <div v-if="socialStats?.mostControversial" class="card" style="margin-bottom:1.25rem; text-align:center;">
+        <p class="text-muted" style="font-size:0.8rem; margin-bottom:0.3rem;">Most Controversial</p>
+        <strong style="font-size:1.2rem;">🔥 "{{ socialStats.mostControversial.item.text }}"</strong>
+      </div>
+
+      <div v-if="socialStats?.players" class="card" style="margin-bottom:1.25rem;">
+        <h3 style="margin-bottom:0.75rem;">Your Hot Takes</h3>
+        <div v-for="pStat in socialStats.players.filter((p:any)=>p.playerId===playerId)" :key="pStat.playerId">
+          <div v-if="pStat.hotTakes?.length" style="display:flex;flex-direction:column;gap:0.5rem;">
+            <div v-for="take in pStat.hotTakes" :key="take.item.text"
+              style="padding:0.6rem 0.8rem;background:var(--surface);border-radius:10px;font-size:0.9rem;">
+              You ranked <strong>"{{ take.item.text }}"</strong> at
+              <span style="color:var(--accent);font-weight:700;">#{{ take.playerRank }}</span>
+              · group avg: <span style="color:var(--text-muted);">#{{ take.groupAvg }}</span>
+            </div>
+          </div>
+          <p v-else class="text-muted" style="font-size:0.9rem;">You ranked pretty close to the group — no big hot takes!</p>
         </div>
       </div>
 

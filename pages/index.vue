@@ -44,6 +44,13 @@ onMounted(loadLists)
     <div class="container" style="max-width:680px; padding-top: 3rem;">
       <!-- Title -->
       <div class="text-center" style="margin-bottom: 3rem;">
+        <div style="display:flex; justify-content:center; margin-bottom:1.25rem;">
+          <OwlMascot
+            size="lg"
+            mood="excited"
+            message="Hoo's ready to rank? Let's go!"
+          />
+        </div>
         <div class="game-title">Blind Ranking</div>
         <p class="text-muted mt-sm" style="font-size:1.05rem;">
           Rank items without knowing what's coming next. The ultimate party challenge.

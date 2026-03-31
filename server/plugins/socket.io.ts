@@ -109,14 +109,15 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
         }, 1500)
       })
 
-      // Host manually reveals the answer and moves to next question
+      // Host manually reveals the answer (fallback if auto-reveal hasn't fired yet)
       socket.on('reveal-answer', ({ code }: { code: string }) => {
         const game = getGame(code)
         if (!game || game.hostSocketId !== socket.id) return
         if (game.status !== 'social') return
+        // Guard: already resolved this round if answers map is empty
+        if (game.socialAnswers.size === 0) return
 
         const result = resolveSocialQuestion(game)
-
         io!.to(`game:${code}`).emit('social-answer-revealed', {
           correctAnswerId: result.question.correctAnswerId,
           explanation: result.question.explanation,
@@ -231,10 +232,25 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
         if (accepted) {
           socket.emit('social-answer-accepted')
           const activePlayers = Array.from(game.players.values()).filter(p => p.connected)
+          const answeredIds = new Set(game.socialAnswers.keys())
+
           io!.to(`host:${code}`).emit('social-answer-count', {
             count: game.socialAnswers.size,
-            total: activePlayers.length
+            total: activePlayers.length,
+            answeredPlayerIds: Array.from(answeredIds)
           })
+
+          // Auto-reveal when all active players have answered
+          if (game.socialAnswers.size >= activePlayers.length && game.socialAnswers.size > 0) {
+            const result = resolveSocialQuestion(game)
+            io!.to(`game:${code}`).emit('social-answer-revealed', {
+              correctAnswerId: result.question.correctAnswerId,
+              explanation: result.question.explanation,
+              correctPlayers: result.correctPlayers,
+              scores: result.answererScores,
+              runningScores: getRunningScores(game)
+            })
+          }
         }
       })
 
