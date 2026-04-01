@@ -399,7 +399,15 @@ function optionLabel(question: any, answerId: string) {
             <div v-for="slot in totalItems" :key="slot">
               <div class="mini-slot" :class="playerRankings[player.id]?.[slot] ? 'filled' : 'empty'" style="font-size:0.9rem; padding:0.45rem 0.7rem; margin-bottom:0.35rem;">
                 <span class="mini-slot__rank" style="font-size:0.9rem; min-width:1.8rem;">#{{ slot }}</span>
-                <span v-if="playerRankings[player.id]?.[slot]" style="color:var(--green); font-size:0.8rem;">✓ ranked</span>
+                <template v-if="playerRankings[player.id]?.[slot]">
+                  <img v-if="playerRankings[player.id][slot]?.imageUrl"
+                    :src="playerRankings[player.id][slot]!.imageUrl"
+                    style="width:20px;height:20px;object-fit:cover;border-radius:3px;flex-shrink:0;"
+                  />
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    {{ playerRankings[player.id][slot]?.text }}
+                  </span>
+                </template>
                 <span v-else style="color:var(--text-dim);">—</span>
               </div>
             </div>
