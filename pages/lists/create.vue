@@ -1,5 +1,10 @@
 <script setup lang="ts">
+const { isAdmin, adminHeaders } = useAdmin()
 const router = useRouter()
+
+onMounted(() => {
+  if (!isAdmin.value) router.replace('/admin?redirect=/lists/create')
+})
 
 const form = ref({
   name: '',
@@ -20,6 +25,7 @@ async function save() {
   try {
     await $fetch('/api/lists', {
       method: 'POST',
+      headers: adminHeaders(),
       body: { ...form.value, items: validItems }
     })
     router.push('/lists')

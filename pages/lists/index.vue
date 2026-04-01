@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { isAdmin } = useAdmin()
 const lists = ref<any[]>([])
 const loading = ref(true)
 
@@ -15,12 +16,12 @@ onMounted(load)
     <div class="container">
       <div class="flex-between" style="margin-bottom:2rem;">
         <div>
-          <h1>My Lists</h1>
-          <p class="text-muted mt-sm">Manage your ranking lists.</p>
+          <h1>Lists</h1>
+          <p class="text-muted mt-sm">Ranking lists available to play.</p>
         </div>
         <div class="flex gap-md">
           <NuxtLink to="/" class="btn btn--ghost">← Home</NuxtLink>
-          <NuxtLink to="/lists/create" class="btn btn--primary">+ New List</NuxtLink>
+          <NuxtLink v-if="isAdmin" to="/lists/create" class="btn btn--primary">+ New List</NuxtLink>
         </div>
       </div>
 
@@ -31,8 +32,9 @@ onMounted(load)
       <div v-else-if="lists.length === 0" class="card text-center" style="padding:3rem;">
         <div style="font-size:3rem; margin-bottom:1rem;">📋</div>
         <h2>No lists yet</h2>
-        <p class="text-muted mt-sm">Create your first ranking list to start playing.</p>
-        <NuxtLink to="/lists/create" class="btn btn--primary mt-lg">Create a List</NuxtLink>
+        <p v-if="isAdmin" class="text-muted mt-sm">Create your first ranking list to start playing.</p>
+        <p v-else class="text-muted mt-sm">No lists have been created yet.</p>
+        <NuxtLink v-if="isAdmin" to="/lists/create" class="btn btn--primary mt-lg">Create a List</NuxtLink>
       </div>
 
       <div v-else style="display:flex; flex-direction:column; gap:0.75rem;">
@@ -48,7 +50,7 @@ onMounted(load)
               </div>
             </div>
             <div class="flex gap-sm">
-              <NuxtLink :to="`/lists/${list._id}`" class="btn btn--ghost btn--sm">Edit</NuxtLink>
+              <NuxtLink v-if="isAdmin" :to="`/lists/${list._id}`" class="btn btn--ghost btn--sm">Edit</NuxtLink>
             </div>
           </div>
 

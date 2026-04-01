@@ -7,6 +7,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     mongoUri: 'mongodb://localhost:27017/blind-ranking-game',
+    adminPin: '1234',
     r2AccountId: '',
     r2AccessKeyId: '',
     r2SecretAccessKey: '',

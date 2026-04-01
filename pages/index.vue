@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { isAdmin } = useAdmin()
 const router = useRouter()
 
 const joinCode = ref('')
@@ -86,8 +87,8 @@ onMounted(loadLists)
         </p>
 
         <div v-if="lists.length === 0" class="text-muted" style="font-size:0.9rem;">
-          No lists yet.
-          <NuxtLink to="/lists/create" style="color:var(--accent);">Create one first →</NuxtLink>
+          No lists available yet.
+          <NuxtLink v-if="isAdmin" to="/lists/create" style="color:var(--accent);">Create one first →</NuxtLink>
         </div>
 
         <div v-else>
@@ -115,9 +116,9 @@ onMounted(loadLists)
         </div>
       </div>
 
-      <!-- Manage Lists -->
-      <div class="flex-between">
-        <span class="text-muted" style="font-size:0.9rem;">Need a list?</span>
+      <!-- Admin link -->
+      <div v-if="isAdmin" class="flex-between">
+        <span class="text-muted" style="font-size:0.9rem;">Manage content</span>
         <NuxtLink to="/lists" class="btn btn--ghost btn--sm">Manage Lists →</NuxtLink>
       </div>
     </div>

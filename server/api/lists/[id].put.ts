@@ -1,6 +1,8 @@
 import List from '../../models/List'
+import { requireAdmin } from '../../utils/requireAdmin'
 
 export default defineEventHandler(async (event) => {
+  requireAdmin(event)
   const id = getRouterParam(event, 'id')
   const body = await readBody(event)
 

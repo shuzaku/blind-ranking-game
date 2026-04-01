@@ -1,6 +1,8 @@
 import List from '../../models/List'
+import { requireAdmin } from '../../utils/requireAdmin'
 
 export default defineEventHandler(async (event) => {
+  requireAdmin(event)
   const body = await readBody(event)
 
   if (!body?.name?.trim()) {

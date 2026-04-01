@@ -55,6 +55,25 @@ function cancelAutoAdvance() {
   autoAdvanceCountdown.value = 0
 }
 
+// QR code
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
+
+async function renderQr() {
+  if (!qrCanvas.value || !joinUrl.value) return
+  const QRCode = (await import('qrcode')).default
+  QRCode.toCanvas(qrCanvas.value, joinUrl.value, {
+    width: 200,
+    margin: 2,
+    color: { dark: '#f1f5f9', light: '#1a1a3a' }
+  })
+}
+
+onMounted(() => {
+  watch([joinUrl, qrCanvas], ([url, canvas]) => {
+    if (url && canvas) renderQr()
+  }, { immediate: true })
+})
+
 // Results
 const finalResults = ref<any[]>([])
 const allItems = ref<any[]>([])
@@ -262,7 +281,8 @@ function optionLabel(question: any, answerId: string) {
           <div class="code-card">
             <p style="font-size:1rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-muted);margin-bottom:0.5rem;">Players join at</p>
             <p style="font-size:1.2rem;color:var(--cyan);margin-bottom:1rem;">{{ joinUrl }}</p>
-            <div class="lobby-code">{{ code }}</div>
+            <div class="lobby-code" style="margin-bottom:1.25rem;">{{ code }}</div>
+            <canvas ref="qrCanvas" style="border-radius:12px; display:block; margin:0 auto;"></canvas>
           </div>
 
           <div class="card mt-lg">
