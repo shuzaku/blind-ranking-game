@@ -490,8 +490,32 @@ function optionLabel(question: any, answerId: string) {
           <div class="flex gap-md" style="align-items:center;">
             <span class="badge badge--cyan" style="font-size:1rem; padding:0.4rem 1rem; letter-spacing:0.15em;">{{ code }}</span>
             <span class="badge badge--yellow" style="font-size:1rem; padding:0.4rem 1rem;">{{ currentQuestion.category }}</span>
+            <span class="text-muted" style="font-size:1.2rem; font-weight:600;">Q{{ questionNumber }} / {{ totalQuestions }}</span>
           </div>
-          <span class="text-muted" style="font-size:1.2rem; font-weight:600;">Question {{ questionNumber }} / {{ totalQuestions }}</span>
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <button v-if="!answerRevealed" class="btn btn--ghost" style="font-size:1rem;" @click="revealAnswer">
+              Reveal Early
+            </button>
+            <template v-else>
+              <div v-if="autoAdvanceCountdown > 0" style="display:flex; align-items:center; gap:0.6rem;">
+                <svg viewBox="0 0 36 36" width="36" height="36">
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="var(--accent)" stroke-width="3"
+                    stroke-dasharray="94.25"
+                    :stroke-dashoffset="94.25 * (1 - autoAdvanceCountdown / 10)"
+                    stroke-linecap="round"
+                    transform="rotate(-90 18 18)"
+                    style="transition: stroke-dashoffset 0.95s linear;"
+                  />
+                  <text x="18" y="23" text-anchor="middle" fill="var(--text)" font-size="13" font-weight="800">{{ autoAdvanceCountdown }}</text>
+                </svg>
+                <button class="btn btn--ghost btn--sm" @click="cancelAutoAdvance">Cancel</button>
+              </div>
+              <button class="btn btn--primary" style="font-size:1rem; padding:0.75rem 1.5rem;" @click="cancelAutoAdvance(); nextQuestion()">
+                {{ isLastQuestion ? 'Final Results →' : 'Next Question →' }}
+              </button>
+            </template>
+          </div>
         </div>
 
         <div class="progress-bar" style="height:10px; margin-bottom:2rem;">
@@ -531,75 +555,56 @@ function optionLabel(question: any, answerId: string) {
           </div>
         </div>
 
-        <!-- Options grid -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-bottom:2rem;">
-          <div
-            v-for="opt in currentQuestion.options"
-            :key="opt.id"
-            class="card"
-            :style="answerRevealed ? (opt.id === currentQuestion.correctAnswerId
-              ? 'border-color:var(--green);background:rgba(16,185,129,0.1)'
-              : 'opacity:0.4') : ''"
-            style="text-align:center;padding:1.5rem;"
-          >
-            <img v-if="opt.imageUrl" :src="opt.imageUrl"
-              style="width:80px;height:80px;object-fit:cover;border-radius:10px;margin-bottom:0.75rem;"/>
-            <div style="font-weight:700; font-size:1.2rem;">{{ opt.label }}</div>
-          </div>
-        </div>
+        <!-- Two-column: answers left, scores right -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:2rem; align-items:start;">
 
-        <!-- Reveal / explanation -->
-        <div v-if="answerRevealed && revealData" class="card" style="margin-bottom:2rem;text-align:center;border-color:var(--green); padding:2rem;">
-          <div style="font-size:2.5rem;margin-bottom:0.75rem;">✅</div>
-          <p style="font-weight:700; font-size:1.5rem; line-height:1.3;">{{ revealData.explanation }}</p>
-          <div v-if="revealData.correctPlayers?.length" style="margin-top:1rem;">
-            <span class="text-muted" style="font-size:1rem;">Got it right: </span>
-            <strong style="font-size:1.1rem;">{{ revealData.correctPlayers.map((id:string) => players.find(p=>p.id===id)?.name || id).join(', ') }}</strong>
-          </div>
-        </div>
-
-        <!-- Running scores during social -->
-        <div v-if="runningScores.length" class="card" style="margin-bottom:2rem;">
-          <h2 style="margin-bottom:1rem;">Scores so far</h2>
-          <div class="leaderboard">
-            <div v-for="(s,i) in runningScores" :key="s.id" class="leaderboard-row" style="padding:0.85rem 1.25rem;">
-              <div class="lb-rank" style="font-size:1.3rem; min-width:2.5rem;">{{ i+1 }}</div>
-              <div class="lb-name" style="font-size:1.2rem;">{{ s.name }}</div>
-              <div class="lb-score" style="font-size:1.3rem;">{{ s.score }}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Action buttons -->
-        <div class="text-center flex gap-md" style="justify-content:center; align-items:center;">
-          <button v-if="!answerRevealed" class="btn btn--ghost btn--lg" style="font-size:1.1rem;" @click="revealAnswer">
-            Reveal Early
-          </button>
-          <template v-else>
-            <div style="display:flex; flex-direction:column; align-items:center; gap:0.5rem;">
-              <button class="btn btn--primary btn--lg" style="font-size:1.2rem; padding:1.1rem 2.5rem;" @click="cancelAutoAdvance(); nextQuestion()">
-                {{ isLastQuestion ? 'See Final Results →' : 'Next Question →' }}
-              </button>
-              <div v-if="autoAdvanceCountdown > 0" style="display:flex; align-items:center; gap:0.75rem;">
-                <div class="auto-advance-ring">
-                  <svg viewBox="0 0 36 36" width="40" height="40">
-                    <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>
-                    <circle cx="18" cy="18" r="15" fill="none" stroke="var(--accent)" stroke-width="3"
-                      stroke-dasharray="94.25"
-                      :stroke-dashoffset="94.25 * (1 - autoAdvanceCountdown / 10)"
-                      stroke-linecap="round"
-                      transform="rotate(-90 18 18)"
-                      style="transition: stroke-dashoffset 0.95s linear;"
-                    />
-                    <text x="18" y="23" text-anchor="middle" fill="var(--text)" font-size="13" font-weight="800">{{ autoAdvanceCountdown }}</text>
-                  </svg>
-                </div>
-                <span style="color:var(--text-muted); font-size:1rem;">Auto-advancing...</span>
-                <button class="btn btn--ghost btn--sm" style="font-size:0.9rem;" @click="cancelAutoAdvance">Cancel</button>
+          <!-- Left: answer options -->
+          <div>
+            <h3 style="margin-bottom:1rem; font-size:1rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Answers</h3>
+            <div style="display:flex; flex-direction:column; gap:0.75rem;">
+              <div
+                v-for="opt in currentQuestion.options"
+                :key="opt.id"
+                class="card"
+                :style="answerRevealed ? (opt.id === currentQuestion.correctAnswerId
+                  ? 'border-color:var(--green);background:rgba(16,185,129,0.1)'
+                  : 'opacity:0.4') : ''"
+                style="display:flex; align-items:center; gap:1rem; padding:1rem 1.25rem;"
+              >
+                <img v-if="opt.imageUrl" :src="opt.imageUrl"
+                  style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;"/>
+                <span style="font-weight:700; font-size:1.2rem; flex:1;">{{ opt.label }}</span>
+                <span v-if="answerRevealed && opt.id === currentQuestion.correctAnswerId"
+                  style="color:var(--green); font-size:1.4rem;">✓</span>
               </div>
             </div>
-          </template>
+
+            <!-- Reveal explanation -->
+            <div v-if="answerRevealed && revealData" class="card" style="margin-top:1rem; border-color:var(--green); padding:1.25rem;">
+              <p style="font-weight:700; font-size:1.2rem; line-height:1.3;">{{ revealData.explanation }}</p>
+              <div v-if="revealData.correctPlayers?.length" style="margin-top:0.75rem;">
+                <span class="text-muted" style="font-size:0.95rem;">Got it right: </span>
+                <strong style="font-size:1rem;">{{ revealData.correctPlayers.map((id:string) => players.find(p=>p.id===id)?.name || id).join(', ') }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: scores -->
+          <div>
+            <h3 style="margin-bottom:1rem; font-size:1rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Scores</h3>
+            <div v-if="runningScores.length" class="leaderboard">
+              <div v-for="(s,i) in runningScores" :key="s.id" class="leaderboard-row" style="padding:0.85rem 1.25rem;">
+                <div class="lb-rank" style="font-size:1.3rem; min-width:2.5rem;">{{ i + 1 }}</div>
+                <div class="lb-name" style="font-size:1.2rem;">{{ s.name }}</div>
+                <div class="lb-score" style="font-size:1.3rem;">{{ s.score }}</div>
+              </div>
+            </div>
+            <div v-else class="card" style="text-align:center; padding:2rem; color:var(--text-dim);">
+              <p style="font-size:1rem;">Scores appear after the first reveal</p>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
 
