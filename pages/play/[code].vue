@@ -262,7 +262,6 @@ function isMyWrongAnswer(opt: any) {
             :message="hasPlacedThisRound ? 'Locked in! ✓' : currentItem.text"
           />
         </div>
-        <img v-if="currentItem.imageUrl" :src="currentItem.imageUrl" class="item-card__image" style="width:100%;max-height:200px;object-fit:cover;border-radius:14px;margin-bottom:0.75rem;" />
         <div class="text-center">
           <span v-if="!hasPlacedThisRound" class="badge badge--yellow">Tap a slot below to rank it</span>
           <span v-else class="badge badge--green">Nice! Pick the next slot while you wait</span>

@@ -1,10 +1,26 @@
 import { readMultipartFormData } from 'h3'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+
+let s3: S3Client | null = null
+
+function getS3Client(config: ReturnType<typeof useRuntimeConfig>) {
+  if (!s3) {
+    s3 = new S3Client({
+      region: 'auto',
+      endpoint: `https://${config.r2AccountId}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: config.r2AccessKeyId as string,
+        secretAccessKey: config.r2SecretAccessKey as string
+      }
+    })
+  }
+  return s3
+}
 
 export default defineEventHandler(async (event) => {
+  const config = useRuntimeConfig()
   const formData = await readMultipartFormData(event)
+
   if (!formData?.length) {
     throw createError({ statusCode: 400, statusMessage: 'No file uploaded' })
   }
@@ -19,14 +35,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Only JPEG, PNG, GIF, and WebP allowed' })
   }
 
-  const uploadsDir = join(process.cwd(), 'public', 'uploads')
-  if (!existsSync(uploadsDir)) {
-    await mkdir(uploadsDir, { recursive: true })
-  }
-
   const ext = file.filename?.split('.').pop()?.toLowerCase() || 'jpg'
-  const filename = `${Date.now()}_${Math.random().toString(36).substr(2, 8)}.${ext}`
-  await writeFile(join(uploadsDir, filename), file.data)
+  const key = `uploads/${Date.now()}_${Math.random().toString(36).substr(2, 8)}.${ext}`
 
-  return { url: `/uploads/${filename}` }
+  const client = getS3Client(config)
+  await client.send(new PutObjectCommand({
+    Bucket: config.r2Bucket as string,
+    Key: key,
+    Body: file.data,
+    ContentType: file.type || 'image/jpeg'
+  }))
+
+  return { url: `${config.r2PublicUrl}/${key}` }
 })

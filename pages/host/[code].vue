@@ -335,6 +335,8 @@ function optionLabel(question: any, answerId: string) {
       </div>
 
       <div v-else-if="currentItem" style="margin-bottom:2rem;">
+        <img v-if="currentItem.imageUrl" :src="currentItem.imageUrl"
+          style="display:block;margin:0 auto;width:320px;height:320px;object-fit:cover;border-radius:20px;margin-bottom:1.25rem;" />
         <div style="display:flex; justify-content:center; margin-bottom:1.25rem;">
           <OwlMascot
             size="xl"
@@ -342,8 +344,6 @@ function optionLabel(question: any, answerId: string) {
             :message="allPlaced ? currentQuip : currentItem.text"
           />
         </div>
-        <img v-if="currentItem.imageUrl" :src="currentItem.imageUrl"
-          style="display:block;margin:0 auto;max-height:280px;max-width:560px;width:100%;object-fit:cover;border-radius:16px;" />
       </div>
 
       <!-- Placed count + skip -->
