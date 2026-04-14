@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const { $socket } = useNuxtApp()
+const { play } = useSound()
 const code = (route.params.code as string).toUpperCase()
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ function startAutoAdvance() {
   autoAdvanceCountdown.value = 10
   countdownTimer = setInterval(() => {
     autoAdvanceCountdown.value--
+    play('countdown')
     if (autoAdvanceCountdown.value <= 0) {
       clearInterval(countdownTimer!)
       countdownTimer = null
@@ -97,9 +99,13 @@ onMounted(() => {
     for (const p of data.players) {
       if (!playerRankings.value[p.id]) playerRankings.value[p.id] = {}
     }
+    play('playerJoin')
   })
 
-  $socket.on('player-left', (data: any) => { players.value = data.players })
+  $socket.on('player-left', (data: any) => {
+    players.value = data.players
+    play('pop')
+  })
 
   $socket.on('game-started', (data: any) => {
     totalItems.value = data.totalItems
@@ -108,6 +114,7 @@ onMounted(() => {
     rankingComplete.value = false
     playerRankings.value = {}
     for (const p of players.value) playerRankings.value[p.id] = {}
+    play('gameStart')
   })
 
   $socket.on('item-revealed', (data: any) => {
@@ -117,6 +124,7 @@ onMounted(() => {
     recentPlacements.value = []
     lastPlacedNames.value = []
     currentQuip.value = ''
+    play('itemReveal')
   })
 
   $socket.on('placement-update', (data: any) => {
@@ -128,10 +136,16 @@ onMounted(() => {
     if (currentItem.value && playerRankings.value[data.playerId]) {
       playerRankings.value[data.playerId][data.slot] = { ...currentItem.value }
     }
+    play('placement')
   })
 
   $socket.on('round-complete', (data: any) => {
-    if (data.isLastItem) rankingComplete.value = true
+    if (data.isLastItem) {
+      rankingComplete.value = true
+      play('roundComplete')
+    } else {
+      play('allPlaced')
+    }
   })
 
   $socket.on('social-started', (data: any) => {
@@ -141,6 +155,7 @@ onMounted(() => {
     showStatsFirst.value = true
     answerRevealed.value = false
     answerCount.value = 0
+    play('socialStart')
   })
 
   $socket.on('social-question', (data: any) => {
@@ -153,11 +168,13 @@ onMounted(() => {
     answerCount.value = 0
     answeredPlayerIds.value = []
     revealData.value = null
+    play('whoosh')
   })
 
   $socket.on('social-answer-count', (data: any) => {
     answerCount.value = data.count
     answeredPlayerIds.value = data.answeredPlayerIds ?? []
+    play('answerIn')
   })
 
   $socket.on('social-answer-revealed', (data: any) => {
@@ -165,6 +182,7 @@ onMounted(() => {
     revealData.value = data
     runningScores.value = data.runningScores
     startAutoAdvance()
+    play('reveal')
   })
 
   $socket.on('game-over', (data: any) => {
@@ -172,6 +190,7 @@ onMounted(() => {
     finalResults.value = data.results
     allItems.value = data.items
     stats.value = data.stats
+    play('fanfare')
   })
 
   $socket.on('error', (data: any) => {
@@ -189,11 +208,11 @@ onBeforeUnmount(() => {
 })
 
 // ── Actions ───────────────────────────────────────────────────────────────────
-const startGame = () => $socket.emit('start-game', { code })
-const skipReveal = () => $socket.emit('reveal-next', { code })
-const goToSocial = () => $socket.emit('start-social', { code })
-const revealAnswer = () => $socket.emit('reveal-answer', { code })
-const nextQuestion = () => $socket.emit('next-question', { code })
+const startGame = () => { play('whoosh'); $socket.emit('start-game', { code }) }
+const skipReveal = () => { play('click'); $socket.emit('reveal-next', { code }) }
+const goToSocial = () => { play('whoosh'); $socket.emit('start-social', { code }) }
+const revealAnswer = () => { play('reveal'); $socket.emit('reveal-answer', { code }) }
+const nextQuestion = () => { play('click'); $socket.emit('next-question', { code }) }
 
 // ── Owl quips ─────────────────────────────────────────────────────────────────
 const currentQuip = ref('')

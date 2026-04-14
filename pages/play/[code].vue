@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const { $socket } = useNuxtApp()
+const { play } = useSound()
 const code = (route.params.code as string).toUpperCase()
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -49,10 +50,17 @@ onMounted(() => {
     totalItems.value = data.totalItems
     screen.value = 'lobby'
     errorMsg.value = ''
+    play('join')
   })
 
-  $socket.on('player-joined', (data: any) => { players.value = data.players })
-  $socket.on('player-left', (data: any) => { players.value = data.players })
+  $socket.on('player-joined', (data: any) => {
+    players.value = data.players
+    play('playerJoin')
+  })
+  $socket.on('player-left', (data: any) => {
+    players.value = data.players
+    play('pop')
+  })
 
   $socket.on('game-started', (data: any) => {
     totalItems.value = data.totalItems
@@ -61,6 +69,7 @@ onMounted(() => {
     hasPlacedThisRound.value = false
     currentItem.value = null
     lastRoundIsLast.value = false
+    play('gameStart')
   })
 
   $socket.on('item-revealed', (data: any) => {
@@ -69,19 +78,27 @@ onMounted(() => {
     hasPlacedThisRound.value = false
     screen.value = 'ranking'
     showToast(`Item ${data.itemNumber} of ${data.totalItems}`, 'info')
+    play('itemReveal')
   })
 
   $socket.on('placement-confirmed', (data: any) => {
     placements.value[data.slot] = data.item
     hasPlacedThisRound.value = true
+    play('placement')
   })
 
-  $socket.on('placement-error', (data: any) => { showToast(data.message, 'error') })
+  $socket.on('placement-error', (data: any) => {
+    showToast(data.message, 'error')
+    play('wrong')
+  })
 
   $socket.on('round-complete', (data: any) => {
     lastRoundIsLast.value = data.isLastItem
     if (data.isLastItem) {
       screen.value = 'round-complete'
+      play('roundComplete')
+    } else {
+      play('allPlaced')
     }
   })
 
@@ -90,6 +107,7 @@ onMounted(() => {
     screen.value = 'social-stats'
     totalQuestions.value = data.totalQuestions
     totalSocialScore.value = 0
+    play('socialStart')
   })
 
   $socket.on('social-question', (data: any) => {
@@ -101,10 +119,12 @@ onMounted(() => {
     revealData.value = null
     pointsEarned.value = 0
     screen.value = 'social-question'
+    play('whoosh')
   })
 
   $socket.on('social-answer-accepted', () => {
     screen.value = 'social-waiting'
+    play('chime')
   })
 
   $socket.on('social-answer-revealed', (data: any) => {
@@ -113,6 +133,9 @@ onMounted(() => {
     pointsEarned.value = myScore
     totalSocialScore.value += myScore
     screen.value = 'social-result'
+    // Play correct or wrong based on whether they got it right
+    const gotIt = data.correctAnswer && selectedAnswer.value === currentQuestion.value?.correctAnswerId
+    play(gotIt ? 'correct' : 'wrong')
   })
 
   $socket.on('game-over', (data: any) => {
@@ -120,11 +143,13 @@ onMounted(() => {
     allItems.value = data.items
     socialStats.value = data.stats
     screen.value = 'results'
+    play('fanfare')
   })
 
   $socket.on('error', (data: any) => {
     if (screen.value === 'join') { errorMsg.value = data.message }
     else { showToast(data.message, 'error') }
+    play('pop')
   })
 })
 
@@ -137,8 +162,13 @@ onBeforeUnmount(() => {
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 function joinGame() {
-  if (!playerName.value.trim()) { errorMsg.value = 'Enter your name'; return }
+  if (!playerName.value.trim()) {
+    errorMsg.value = 'Enter your name'
+    play('pop')
+    return
+  }
   errorMsg.value = ''
+  play('whoosh')
   $socket.emit('player-join', { code, name: playerName.value.trim() })
 }
 
@@ -146,6 +176,7 @@ function placeItem(slot: number) {
   if (hasPlacedThisRound.value) return
   if (placements.value[slot] !== undefined) return
   if (!currentItem.value) return
+  play('click')
   $socket.emit('place-item', { code, slot })
 }
 
@@ -153,6 +184,7 @@ function submitSocialAnswer(answerId: string) {
   if (hasAnswered.value) return
   selectedAnswer.value = answerId
   hasAnswered.value = true
+  play('whoosh')
   $socket.emit('social-answer', { code, answerId })
 }
 
@@ -394,7 +426,6 @@ function isMyWrongAnswer(opt: any) {
       <div v-else class="card text-center" style="margin-bottom:1.25rem;border-color:var(--red);background:rgba(239,68,68,0.05);">
         <div style="font-size:3rem;margin-bottom:0.5rem;">❌</div>
         <h2>Not quite!</h2>
-        <p v-if="pointsEarned > 0" class="mt-sm" style="color:var(--yellow); font-weight:600;">+{{ pointsEarned }} pts (mystery bonus 🦉)</p>
       </div>
 
       <div class="card" style="margin-bottom:1.25rem;">
