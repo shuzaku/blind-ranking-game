@@ -11,6 +11,27 @@ const errorMsg = ref('')
 const joinShake = ref(false)
 const joinPulsing = ref(false)
 const cardVisible = ref(false)
+const activeTag = ref<string | null>(null)
+
+const allTags = computed(() => {
+  const set = new Set<string>()
+  for (const list of lists.value) {
+    for (const tag of (list.tags || [])) set.add(tag)
+  }
+  return [...set].sort()
+})
+
+const filteredLists = computed(() =>
+  activeTag.value
+    ? lists.value.filter(l => l.tags?.includes(activeTag.value))
+    : lists.value
+)
+
+function toggleTag(tag: string) {
+  activeTag.value = activeTag.value === tag ? null : tag
+  selectedListId.value = ''
+  play('click')
+}
 
 // Floating orbs parallax
 const mouseX = ref(0)
@@ -206,8 +227,25 @@ function onBtnHover() {
         </div>
 
         <div v-else>
+          <!-- Tag filter -->
+          <div v-if="allTags.length" class="host-tag-row">
+            <button
+              v-for="tag in allTags"
+              :key="tag"
+              class="tag-filter-btn"
+              :class="{ active: activeTag === tag }"
+              @click="toggleTag(tag)"
+            >{{ tag }}</button>
+            <button v-if="activeTag" class="tag-filter-btn tag-filter-btn--clear" @click="toggleTag(activeTag)">
+              ✕ Clear
+            </button>
+          </div>
+
           <div class="field">
-            <label class="label">Choose a List</label>
+            <label class="label">
+              Choose a List
+              <span v-if="activeTag" class="tag-filter-label">— {{ filteredLists.length }} matching</span>
+            </label>
             <div class="select-wrap">
               <select
                 v-model="selectedListId"
@@ -215,12 +253,15 @@ function onBtnHover() {
                 @change="play('click')"
               >
                 <option value="">— Select a list —</option>
-                <option v-for="list in lists" :key="list._id" :value="list._id">
+                <option v-for="list in filteredLists" :key="list._id" :value="list._id">
                   {{ list.name }} ({{ list.items?.length || 0 }} items)
                 </option>
               </select>
               <span class="select-arrow">▾</span>
             </div>
+            <p v-if="activeTag && filteredLists.length === 0" style="color:var(--text-dim); font-size:0.85rem; margin-top:0.4rem;">
+              No lists tagged "{{ activeTag }}"
+            </p>
           </div>
 
           <div v-if="errorMsg" class="error-msg">
@@ -569,6 +610,23 @@ function onBtnHover() {
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 0;
+}
+
+/* ── Host tag filter row ─────────────────────────── */
+.host-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.tag-filter-label {
+  font-weight: 400;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8rem;
+  margin-left: 0.4rem;
 }
 
 /* ── Responsive ──────────────────────────────────── */

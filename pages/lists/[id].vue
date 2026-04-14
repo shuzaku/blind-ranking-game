@@ -11,6 +11,7 @@ onMounted(() => {
 const form = ref({
   name: '',
   description: '',
+  tags: [] as string[],
   items: [] as Array<{ text: string; imageUrl: string }>
 })
 
@@ -23,6 +24,7 @@ onMounted(async () => {
   form.value = {
     name: data.name,
     description: data.description || '',
+    tags: data.tags || [],
     items: (data.items || []).map((i: any) => ({ text: i.text, imageUrl: i.imageUrl || '' }))
   }
   loading.value = false
@@ -71,6 +73,11 @@ async function save() {
         <div class="field">
           <label class="label">Description</label>
           <input v-model="form.description" class="input" placeholder="Optional description..." />
+        </div>
+
+        <div class="field">
+          <label class="label">Tags</label>
+          <TagInput v-model="form.tags" />
         </div>
 
         <div class="divider"></div>

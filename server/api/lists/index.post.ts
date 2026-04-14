@@ -12,6 +12,7 @@ export default defineEventHandler(async (event) => {
   const list = new List({
     name: body.name.trim(),
     description: body.description?.trim() || '',
+    tags: (body.tags || []).map((t: string) => t.trim().toLowerCase()).filter(Boolean),
     items: (body.items || []).map((item: any) => ({
       text: item.text?.trim() || '',
       imageUrl: item.imageUrl || ''

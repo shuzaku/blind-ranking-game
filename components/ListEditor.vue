@@ -18,6 +18,35 @@ const items = computed({
   set: (v) => emit('update:modelValue', v)
 })
 
+// ── Bulk import ───────────────────────────────────────────────────────────────
+const showBulk = ref(false)
+const bulkText = ref('')
+const bulkError = ref('')
+
+function applyBulk() {
+  bulkError.value = ''
+  const lines = bulkText.value
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+
+  if (lines.length === 0) {
+    bulkError.value = 'Paste at least one item.'
+    return
+  }
+
+  const newItems: Item[] = lines.map(line => ({ text: line, imageUrl: '' }))
+  // Merge: keep existing items, append new ones (dedup by text)
+  const existingTexts = new Set(items.value.map(i => i.text.toLowerCase()))
+  const toAdd = newItems.filter(i => !existingTexts.has(i.text.toLowerCase()))
+  // Strip any blank placeholder rows before merging
+  const cleaned = items.value.filter(i => i.text.trim() !== '')
+  items.value = [...cleaned, ...toAdd]
+
+  bulkText.value = ''
+  showBulk.value = false
+}
+
 function addItem() {
   items.value = [...items.value, { text: '', imageUrl: '' }]
   nextTick(() => {
@@ -124,7 +153,32 @@ function removeImage(index: number) {
           Add as many items as you like. Each game randomly picks 10 to rank.
         </p>
       </div>
-      <button type="button" class="btn btn--ghost btn--sm" @click="addItem">+ Add Item</button>
+      <div style="display:flex; gap:0.5rem;">
+        <button type="button" class="btn btn--ghost btn--sm" @click="showBulk = !showBulk">
+          {{ showBulk ? '✕ Cancel' : '⚡ Bulk Add' }}
+        </button>
+        <button type="button" class="btn btn--ghost btn--sm" @click="addItem">+ Add Item</button>
+      </div>
+    </div>
+
+    <!-- Bulk import panel -->
+    <div v-if="showBulk" style="margin-bottom:1rem; padding:1rem; background:var(--surface); border:1px solid var(--border); border-radius:12px;">
+      <label class="label" style="margin-bottom:0.4rem;">Paste items — one per line</label>
+      <textarea
+        v-model="bulkText"
+        class="input"
+        rows="8"
+        placeholder="McDonald's&#10;Burger King&#10;Wendy's&#10;Five Guys&#10;..."
+        style="font-family: monospace; font-size: 0.9rem; resize: vertical;"
+        autofocus
+      />
+      <div v-if="bulkError" style="color:var(--red); font-size:0.85rem; margin-top:0.4rem;">{{ bulkError }}</div>
+      <div style="display:flex; gap:0.5rem; margin-top:0.75rem; justify-content:flex-end;">
+        <button type="button" class="btn btn--ghost btn--sm" @click="showBulk = false; bulkText = ''; bulkError = ''">Cancel</button>
+        <button type="button" class="btn btn--primary btn--sm" @click="applyBulk">
+          Add {{ bulkText.split('\n').filter(l => l.trim()).length || 0 }} items
+        </button>
+      </div>
     </div>
 
     <div

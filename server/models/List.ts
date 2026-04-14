@@ -8,6 +8,7 @@ const ItemSchema = new mongoose.Schema({
 const ListSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, default: '' },
+  tags: { type: [String], default: [] },
   items: { type: [ItemSchema], default: [] }
 }, { timestamps: true })
 
