@@ -774,6 +774,79 @@ textarea.input { resize: vertical; min-height: 80px; }
   50%       { transform: rotate(5deg); }
 }
 
+/* ── YouTube ────────────────────────────────────────── */
+.yt-thumb-link {
+  display: block;
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.yt-thumb-img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+}
+.yt-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.38);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: background 0.2s;
+}
+.yt-thumb-link:hover .yt-thumb-overlay {
+  background: rgba(0,0,0,0.55);
+}
+.yt-play-btn {
+  width: 52px;
+  height: 52px;
+  background: rgba(255,0,0,0.85);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: #fff;
+  transition: transform 0.15s;
+}
+.yt-thumb-link:hover .yt-play-btn { transform: scale(1.1); }
+.yt-thumb-label {
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.yt-look-up-banner {
+  text-align: center;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.75rem;
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 0.02em;
+  animation: pillFloat 2.5s ease-in-out infinite;
+}
+
+.yt-paused-banner {
+  text-align: center;
+  margin-top: 0.6rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--yellow);
+  letter-spacing: 0.03em;
+  animation: blink 1.5s ease-in-out infinite;
+}
+
 /* ── Tags ───────────────────────────────────────────── */
 .tag-filter-btn {
   display: inline-flex;

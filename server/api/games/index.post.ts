@@ -31,7 +31,8 @@ export default defineEventHandler(async (event) => {
 
   const allItems = list.items.map((item: any) => ({
     text: item.text,
-    imageUrl: item.imageUrl || ''
+    imageUrl: item.imageUrl || '',
+    youtubeUrl: item.youtubeUrl || ''
   }))
 
   // Randomly pick up to 10 items

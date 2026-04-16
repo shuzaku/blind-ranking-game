@@ -15,7 +15,8 @@ export default defineEventHandler(async (event) => {
     tags: (body.tags || []).map((t: string) => t.trim().toLowerCase()).filter(Boolean),
     items: (body.items || []).map((item: any) => ({
       text: item.text?.trim() || '',
-      imageUrl: item.imageUrl || ''
+      imageUrl: item.imageUrl || '',
+      youtubeUrl: item.youtubeUrl || ''
     })).filter((item: any) => item.text)
   })
 

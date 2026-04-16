@@ -2,7 +2,26 @@
 interface Item {
   text: string
   imageUrl: string
+  youtubeUrl: string
   _uploading?: boolean
+}
+
+function extractYouTubeId(url: string): string | null {
+  if (!url) return null
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+  ]
+  for (const p of patterns) {
+    const m = url.match(p)
+    if (m) return m[1]
+  }
+  return null
+}
+
+function youtubeThumbnail(url: string): string | null {
+  const id = extractYouTubeId(url)
+  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null
 }
 
 const props = defineProps<{
@@ -35,7 +54,7 @@ function applyBulk() {
     return
   }
 
-  const newItems: Item[] = lines.map(line => ({ text: line, imageUrl: '' }))
+  const newItems: Item[] = lines.map(line => ({ text: line, imageUrl: '', youtubeUrl: '' }))
   // Merge: keep existing items, append new ones (dedup by text)
   const existingTexts = new Set(items.value.map(i => i.text.toLowerCase()))
   const toAdd = newItems.filter(i => !existingTexts.has(i.text.toLowerCase()))
@@ -48,7 +67,7 @@ function applyBulk() {
 }
 
 function addItem() {
-  items.value = [...items.value, { text: '', imageUrl: '' }]
+  items.value = [...items.value, { text: '', imageUrl: '', youtubeUrl: '' }]
   nextTick(() => {
     const input = document.getElementById(`item-input-${items.value.length - 1}`) as HTMLInputElement
     input?.focus()
@@ -81,7 +100,7 @@ function updateItem(index: number, field: keyof Item, value: string) {
 
 function addItemAt(index: number) {
   const arr = [...items.value]
-  arr.splice(index + 1, 0, { text: '', imageUrl: '' })
+  arr.splice(index + 1, 0, { text: '', imageUrl: '', youtubeUrl: '' })
   items.value = arr
   nextTick(() => {
     const input = document.getElementById(`item-input-${index + 1}`) as HTMLInputElement
@@ -193,38 +212,54 @@ function removeImage(index: number) {
       <!-- Rank badge -->
       <span class="list-item-row__rank">#{{ index + 1 }}</span>
 
-      <!-- Image thumbnail / upload -->
+      <!-- Media: image or YouTube thumbnail -->
       <div style="position:relative; flex-shrink:0;">
-        <img
-          v-if="item.imageUrl"
-          :src="item.imageUrl"
-          class="list-item-row__img-thumb"
-          @click="triggerUpload(index)"
-          style="cursor:pointer;"
-          title="Click to change image"
-        />
-        <div
-          v-else-if="item._uploading"
-          class="list-item-row__img-placeholder"
-          style="cursor:default;"
-        >
-          <div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>
-        </div>
-        <div
-          v-else
-          class="list-item-row__img-placeholder"
-          @click="triggerUpload(index)"
-          title="Upload image"
-        >
-          📷
-        </div>
+        <!-- YouTube thumbnail takes priority if set -->
+        <template v-if="item.youtubeUrl && extractYouTubeId(item.youtubeUrl)">
+          <div style="position:relative; width:48px; height:48px;">
+            <img
+              :src="youtubeThumbnail(item.youtubeUrl)!"
+              class="list-item-row__img-thumb"
+              style="cursor:default;"
+              title="YouTube video"
+            />
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);border-radius:8px;">
+              <span style="font-size:1rem;">▶</span>
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <img
+            v-if="item.imageUrl"
+            :src="item.imageUrl"
+            class="list-item-row__img-thumb"
+            @click="triggerUpload(index)"
+            style="cursor:pointer;"
+            title="Click to change image"
+          />
+          <div
+            v-else-if="item._uploading"
+            class="list-item-row__img-placeholder"
+            style="cursor:default;"
+          >
+            <div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>
+          </div>
+          <div
+            v-else
+            class="list-item-row__img-placeholder"
+            @click="triggerUpload(index)"
+            title="Upload image"
+          >
+            📷
+          </div>
 
-        <button
-          v-if="item.imageUrl"
-          type="button"
-          style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;"
-          @click="removeImage(index)"
-        >×</button>
+          <button
+            v-if="item.imageUrl"
+            type="button"
+            style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;"
+            @click="removeImage(index)"
+          >×</button>
+        </template>
 
         <input
           :id="`file-input-${index}`"
@@ -235,16 +270,36 @@ function removeImage(index: number) {
         />
       </div>
 
-      <!-- Text input -->
+      <!-- Text + YouTube URL inputs -->
       <div class="list-item-row__fields">
         <input
           :id="`item-input-${index}`"
           :value="item.text"
           class="input"
           placeholder="Item name..."
+          style="margin-bottom:0.35rem;"
           @input="updateItem(index, 'text', ($event.target as HTMLInputElement).value)"
           @keydown="handleItemKeydown(index, $event)"
         />
+        <div style="position:relative;">
+          <input
+            :value="item.youtubeUrl"
+            class="input"
+            style="font-size:0.8rem; padding-left:1.75rem; color:var(--text-muted);"
+            placeholder="YouTube URL (optional)..."
+            @input="updateItem(index, 'youtubeUrl', ($event.target as HTMLInputElement).value)"
+          />
+          <span style="position:absolute;left:0.55rem;top:50%;transform:translateY(-50%);font-size:0.85rem;pointer-events:none;">▶</span>
+          <span
+            v-if="item.youtubeUrl && !extractYouTubeId(item.youtubeUrl)"
+            style="position:absolute;right:0.55rem;top:50%;transform:translateY(-50%);font-size:0.75rem;color:var(--red);"
+            title="Invalid YouTube URL"
+          >✕</span>
+          <span
+            v-else-if="item.youtubeUrl && extractYouTubeId(item.youtubeUrl)"
+            style="position:absolute;right:0.55rem;top:50%;transform:translateY(-50%);font-size:0.75rem;color:var(--green);"
+          >✓</span>
+        </div>
       </div>
 
       <!-- Move up/down + remove -->

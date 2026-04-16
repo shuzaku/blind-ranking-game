@@ -1,6 +1,7 @@
 export interface GameItem {
   text: string
   imageUrl: string
+  youtubeUrl?: string
 }
 
 export interface Player {
@@ -52,12 +53,22 @@ export interface SocialQuestion {
   correctAnswerId: string
   explanation: string
   subjectPlayerId?: string // player being asked about (excluded from special scoring)
+  // Defense round fields
+  defensePlayerId?: string  // player who must defend
+  defenseItem?: string      // item text being defended
+  defensePosition?: 'first' | 'last'
 }
 
 export interface SocialRoundResult {
   question: SocialQuestion
   answererScores: Record<string, number> // playerId -> points earned this question
   correctPlayers: string[] // player ids who got it right
+  mysteryBonusAwarded: boolean // true if the subject fooled most players
+  defenseResult?: {
+    defenderWon: boolean
+    agreeCount: number
+    disagreeCount: number
+  }
 }
 
 // ── Game ──────────────────────────────────────────────────────────────────────
@@ -370,7 +381,39 @@ export function generateSocialQuestions(game: ActiveGame, stats: GameStats): Soc
     }
   }
 
-  return shuffle(questions).slice(0, Math.min(8, questions.length))
+  const shuffled = shuffle(questions).slice(0, Math.min(8, questions.length))
+
+  // Defense round: pick a random player with a #1 or last-place ranked item
+  const eligiblePlayers = players.filter(p => {
+    return p.placements[1] !== undefined || p.placements[n] !== undefined
+  })
+  if (eligiblePlayers.length > 0) {
+    const defender = eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)]
+    const position: 'first' | 'last' = Math.random() < 0.5 ? 'first' : 'last'
+    const itemIdx = position === 'first' ? defender.placements[1] : defender.placements[n]
+    if (itemIdx !== undefined) {
+      const itemText = game.items[itemIdx].text
+      const defenseQ: SocialQuestion = {
+        id: `defense_${defender.id}`,
+        category: 'defense',
+        prompt: `${defender.name} ranked "${itemText}" ${position === 'first' ? '#1' : 'last'}. Do you agree with their choice?`,
+        options: [
+          { id: 'agree', label: '👍 Agree' },
+          { id: 'disagree', label: '👎 Disagree' }
+        ],
+        correctAnswerId: '', // determined at resolve time by majority
+        explanation: '',
+        defensePlayerId: defender.id,
+        defenseItem: itemText,
+        defensePosition: position
+      }
+      // Insert defense round at a random position among the shuffled questions
+      const insertAt = Math.floor(Math.random() * (shuffled.length + 1))
+      shuffled.splice(insertAt, 0, defenseQ)
+    }
+  }
+
+  return shuffled
 }
 
 // ── Social Phase Actions ──────────────────────────────────────────────────────
@@ -400,6 +443,58 @@ export function recordSocialAnswer(game: ActiveGame, playerId: string, answerId:
 export function resolveSocialQuestion(game: ActiveGame): SocialRoundResult {
   const question = getCurrentSocialQuestion(game)!
   const scores: Record<string, number> = {}
+
+  // ── Defense round ──────────────────────────────────────────────────────────
+  if (question.category === 'defense' && question.defensePlayerId) {
+    let agreeCount = 0
+    let disagreeCount = 0
+
+    for (const [playerId, answerId] of game.socialAnswers.entries()) {
+      if (playerId === question.defensePlayerId) continue // defender doesn't vote
+      if (answerId === 'agree') agreeCount++
+      else disagreeCount++
+      scores[playerId] = 0 // default; overwritten below
+    }
+
+    const defenderWon = agreeCount > disagreeCount
+    const winningSide = defenderWon ? 'agree' : disagreeCount > agreeCount ? 'disagree' : null
+
+    // Award voter points to the winning side (ties → no bonus)
+    if (winningSide) {
+      for (const [playerId, answerId] of game.socialAnswers.entries()) {
+        if (playerId === question.defensePlayerId) continue
+        if (answerId === winningSide) {
+          scores[playerId] = 300
+          const player = game.players.get(playerId)
+          if (player) player.socialScore += 300
+        }
+      }
+    }
+
+    // Defender always earns +200 for making their case
+    const defender = game.players.get(question.defensePlayerId)
+    if (defender) {
+      defender.socialScore += 200
+      scores[question.defensePlayerId] = 200
+    }
+
+    const result: SocialRoundResult = {
+      question: { ...question, correctAnswerId: winningSide ?? '' },
+      answererScores: scores,
+      correctPlayers: winningSide
+        ? Array.from(game.socialAnswers.entries())
+            .filter(([pid, ans]) => pid !== question.defensePlayerId && ans === winningSide)
+            .map(([pid]) => pid)
+        : [],
+      mysteryBonusAwarded: false,
+      defenseResult: { defenderWon, agreeCount, disagreeCount }
+    }
+    game.socialHistory.push(result)
+    game.socialAnswers = new Map()
+    return result
+  }
+
+  // ── Normal question ────────────────────────────────────────────────────────
   const correct: string[] = []
 
   for (const [playerId, answerId] of game.socialAnswers.entries()) {
@@ -413,7 +508,8 @@ export function resolveSocialQuestion(game: ActiveGame): SocialRoundResult {
     }
   }
 
-  // If the subject was mostly guessed wrong, give them a bonus
+  // If the subject was mostly guessed wrong, give them a mystery bonus
+  let mysteryBonusAwarded = false
   if (question.subjectPlayerId) {
     const subjectCorrectGuessers = correct.filter(id => id !== question.subjectPlayerId)
     const totalAnswerers = game.socialAnswers.size
@@ -424,6 +520,7 @@ export function resolveSocialQuestion(game: ActiveGame): SocialRoundResult {
       if (subject) {
         subject.socialScore += 150
         scores[question.subjectPlayerId] = (scores[question.subjectPlayerId] ?? 0) + 150
+        mysteryBonusAwarded = true
       }
     }
   }
@@ -431,7 +528,8 @@ export function resolveSocialQuestion(game: ActiveGame): SocialRoundResult {
   const result: SocialRoundResult = {
     question,
     answererScores: scores,
-    correctPlayers: correct
+    correctPlayers: correct,
+    mysteryBonusAwarded
   }
   game.socialHistory.push(result)
   game.socialAnswers = new Map()

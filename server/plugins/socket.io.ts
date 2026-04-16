@@ -123,6 +123,10 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
           explanation: result.question.explanation,
           correctPlayers: result.correctPlayers,
           scores: result.answererScores,
+          subjectPlayerId: result.question.subjectPlayerId,
+          mysteryBonusAwarded: result.mysteryBonusAwarded,
+          defenseResult: result.defenseResult ?? null,
+          defensePlayerId: result.question.defensePlayerId ?? null,
           runningScores: getRunningScores(game)
         })
       })
@@ -233,21 +237,30 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
           socket.emit('social-answer-accepted')
           const activePlayers = Array.from(game.players.values()).filter(p => p.connected)
           const answeredIds = new Set(game.socialAnswers.keys())
+          const currentQ = game.socialQuestions[game.currentQuestionIndex]
+          // For defense rounds the defender doesn't vote; exclude them from expected count
+          const expectedVoters = currentQ?.defensePlayerId
+            ? activePlayers.filter(p => p.id !== currentQ.defensePlayerId)
+            : activePlayers
 
           io!.to(`host:${code}`).emit('social-answer-count', {
             count: game.socialAnswers.size,
-            total: activePlayers.length,
+            total: expectedVoters.length,
             answeredPlayerIds: Array.from(answeredIds)
           })
 
-          // Auto-reveal when all active players have answered
-          if (game.socialAnswers.size >= activePlayers.length && game.socialAnswers.size > 0) {
+          // Auto-reveal when all eligible players have answered
+          if (game.socialAnswers.size >= expectedVoters.length && game.socialAnswers.size > 0) {
             const result = resolveSocialQuestion(game)
             io!.to(`game:${code}`).emit('social-answer-revealed', {
               correctAnswerId: result.question.correctAnswerId,
               explanation: result.question.explanation,
               correctPlayers: result.correctPlayers,
               scores: result.answererScores,
+              subjectPlayerId: result.question.subjectPlayerId,
+              mysteryBonusAwarded: result.mysteryBonusAwarded,
+              defenseResult: result.defenseResult ?? null,
+              defensePlayerId: result.question.defensePlayerId ?? null,
               runningScores: getRunningScores(game)
             })
           }

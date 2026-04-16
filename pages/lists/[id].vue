@@ -25,7 +25,7 @@ onMounted(async () => {
     name: data.name,
     description: data.description || '',
     tags: data.tags || [],
-    items: (data.items || []).map((i: any) => ({ text: i.text, imageUrl: i.imageUrl || '' }))
+    items: (data.items || []).map((i: any) => ({ text: i.text, imageUrl: i.imageUrl || '', youtubeUrl: i.youtubeUrl || '' }))
   }
   loading.value = false
 })

@@ -199,9 +199,10 @@ const sounds: Record<SoundName, () => void> = {
     playTone(200, 'sawtooth', 0.22, 0.15, 0, 0.3)
   },
 
-  // Countdown tick
+  // Countdown tick — deep thud + high click for 3-2-1 overlay
   tick: () => {
-    playTone(660, 'square', 0.06, 0.08)
+    playTone(120, 'sine',   0.35, 0.12)   // deep thud
+    playTone(880, 'square', 0.12, 0.05)   // sharp click on top
   },
 
   // Final results fanfare

@@ -2,7 +2,8 @@ import mongoose from 'mongoose'
 
 const ItemSchema = new mongoose.Schema({
   text: { type: String, required: true },
-  imageUrl: { type: String, default: '' }
+  imageUrl: { type: String, default: '' },
+  youtubeUrl: { type: String, default: '' }
 })
 
 const ListSchema = new mongoose.Schema({

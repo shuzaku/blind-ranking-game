@@ -19,7 +19,7 @@ const players = ref<Array<{ id: string; name: string; connected: boolean }>>([])
 const totalItems = ref(0)
 
 // Ranking phase
-const currentItem = ref<{ text: string; imageUrl: string } | null>(null)
+const currentItem = ref<{ text: string; imageUrl: string; youtubeUrl?: string } | null>(null)
 const currentItemNumber = ref(0)
 const hasPlacedThisRound = ref(false)
 const placements = ref<Record<number, { text: string; imageUrl: string }>>({})
@@ -35,6 +35,22 @@ const hasAnswered = ref(false)
 const revealData = ref<any>(null)
 const pointsEarned = ref(0)
 const totalSocialScore = ref(0)
+
+// Defense round vote lockout (30s before voters can submit)
+const defenseVoteLock = ref(0)
+let defenseVoteLockTimer: ReturnType<typeof setInterval> | null = null
+
+function startDefenseVoteLock() {
+  defenseVoteLock.value = 30
+  if (defenseVoteLockTimer) clearInterval(defenseVoteLockTimer)
+  defenseVoteLockTimer = setInterval(() => {
+    defenseVoteLock.value--
+    if (defenseVoteLock.value <= 0) {
+      clearInterval(defenseVoteLockTimer!)
+      defenseVoteLockTimer = null
+    }
+  }, 1000)
+}
 
 // Results
 const finalResults = ref<any[]>([])
@@ -118,8 +134,15 @@ onMounted(() => {
     selectedAnswer.value = null
     revealData.value = null
     pointsEarned.value = 0
+    defenseVoteLock.value = 0
+    if (defenseVoteLockTimer) { clearInterval(defenseVoteLockTimer); defenseVoteLockTimer = null }
+    // Defender doesn't vote — show question screen but with special UI (handled in template)
     screen.value = 'social-question'
     play('whoosh')
+    // Start 30s vote lockout for voters on defense rounds
+    if (data.question?.category === 'defense' && data.question?.defensePlayerId !== playerId.value) {
+      startDefenseVoteLock()
+    }
   })
 
   $socket.on('social-answer-accepted', () => {
@@ -133,9 +156,13 @@ onMounted(() => {
     pointsEarned.value = myScore
     totalSocialScore.value += myScore
     screen.value = 'social-result'
-    // Play correct or wrong based on whether they got it right
-    const gotIt = data.correctAnswer && selectedAnswer.value === currentQuestion.value?.correctAnswerId
-    play(gotIt ? 'correct' : 'wrong')
+    // Defense round: defender always gets points; voters play correct/wrong based on majority side
+    if (currentQuestion.value?.category === 'defense') {
+      play(myScore > 0 ? 'correct' : 'wrong')
+    } else {
+      const gotIt = selectedAnswer.value === data.correctAnswerId
+      play(gotIt ? 'correct' : 'wrong')
+    }
   })
 
   $socket.on('game-over', (data: any) => {
@@ -154,6 +181,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (defenseVoteLockTimer) { clearInterval(defenseVoteLockTimer); defenseVoteLockTimer = null }
   ['joined','player-joined','player-left','game-started','item-revealed','placement-confirmed',
    'placement-error','round-complete','social-started','social-question','social-answer-accepted',
    'social-answer-revealed','game-over','error'].forEach(e => $socket.off(e))
@@ -214,6 +242,18 @@ function isCorrect(opt: any) {
 
 function isMyWrongAnswer(opt: any) {
   return revealData.value && selectedAnswer.value === opt.id && opt.id !== currentQuestion.value?.correctAnswerId
+}
+
+function extractYouTubeId(url: string): string {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+  ]
+  for (const p of patterns) {
+    const m = url.match(p)
+    if (m) return m[1]
+  }
+  return url
 }
 </script>
 
@@ -287,6 +327,11 @@ function isMyWrongAnswer(opt: any) {
 
       <!-- Current item -->
       <div v-if="currentItem" style="margin-bottom:1.25rem;">
+        <!-- YouTube nudge -->
+        <div v-if="currentItem.youtubeUrl" class="yt-look-up-banner">
+          📺 Look at the screen and listen!
+        </div>
+
         <div style="display:flex; justify-content:center; margin-bottom:0.75rem;">
           <OwlMascot
             size="lg"
@@ -365,7 +410,10 @@ function isMyWrongAnswer(opt: any) {
     <!-- ── SOCIAL QUESTION ───────────────────────────────────────── -->
     <div v-if="screen === 'social-question'" style="padding-top:1rem;">
       <div class="flex-between" style="margin-bottom:1rem;">
-        <span class="badge badge--yellow">{{ currentQuestion?.category }}</span>
+        <span class="badge" :class="currentQuestion?.category === 'defense' ? '' : 'badge--yellow'"
+          :style="currentQuestion?.category === 'defense' ? 'background:rgba(168,85,247,0.15);border-color:rgba(168,85,247,0.4);color:#a855f7;' : ''">
+          {{ currentQuestion?.category === 'defense' ? '⚔️ Defense Round' : currentQuestion?.category }}
+        </span>
         <span class="text-muted" style="font-size:0.85rem;">{{ questionNumber }} / {{ totalQuestions }}</span>
       </div>
 
@@ -373,32 +421,87 @@ function isMyWrongAnswer(opt: any) {
         <div class="progress-bar__fill" :style="{width: (questionNumber/totalQuestions*100)+'%'}"></div>
       </div>
 
-      <div style="display:flex; justify-content:center; margin-bottom:1.5rem;">
-        <OwlMascot
-          size="lg"
-          mood="thinking"
-          :message="currentQuestion?.prompt"
-        />
-      </div>
+      <!-- ── DEFENSE: You are the defender ────────────────────────────── -->
+      <template v-if="currentQuestion?.category === 'defense' && currentQuestion?.defensePlayerId === playerId">
+        <div style="display:flex; justify-content:center; margin-bottom:1.5rem;">
+          <OwlMascot size="lg" mood="celebrate" message="Make your case!" />
+        </div>
+        <div class="card text-center" style="border-color:rgba(168,85,247,0.5);background:rgba(168,85,247,0.08);padding:2rem;margin-bottom:1.25rem;">
+          <div style="font-size:3rem;margin-bottom:0.75rem;">🎤</div>
+          <h2 style="margin-bottom:0.5rem;">You're on the stand!</h2>
+          <p style="font-size:1rem;line-height:1.5;color:var(--text-muted);">{{ currentQuestion?.prompt }}</p>
+          <p style="margin-top:1rem;font-size:0.95rem;">Defend your pick out loud — the group is voting on whether they agree with you.</p>
+        </div>
+        <div class="card text-center" style="padding:1rem;">
+          <p class="text-muted" style="font-size:0.85rem;">You earn <strong style="color:var(--green);">+200 pts</strong> just for defending — no matter what!</p>
+        </div>
+        <p class="text-center text-muted mt-lg" style="font-size:0.8rem;">
+          Running total: <strong style="color:var(--cyan);">{{ totalSocialScore }} pts</strong>
+        </p>
+      </template>
 
-      <div style="display:flex;flex-direction:column;gap:0.6rem;">
-        <button
-          v-for="opt in currentQuestion?.options"
-          :key="opt.id"
-          class="btn btn--block"
-          :class="selectedAnswer === opt.id ? 'btn--primary' : 'btn--ghost'"
-          style="justify-content:flex-start;gap:0.75rem;padding:0.85rem 1rem;font-size:1rem;"
-          @click="submitSocialAnswer(opt.id)"
-        >
-          <img v-if="opt.imageUrl" :src="opt.imageUrl"
-            style="width:36px;height:36px;object-fit:cover;border-radius:8px;flex-shrink:0;"/>
-          {{ opt.label }}
-        </button>
-      </div>
+      <!-- ── DEFENSE: You are a voter ──────────────────────────────────── -->
+      <template v-else-if="currentQuestion?.category === 'defense'">
+        <div style="display:flex; justify-content:center; margin-bottom:1.5rem;">
+          <OwlMascot size="lg" :mood="defenseVoteLock > 0 ? 'shush' : 'thinking'" :message="defenseVoteLock > 0 ? 'Shhh... let them make their case first!' : currentQuestion?.prompt" />
+        </div>
 
-      <p class="text-center text-muted mt-lg" style="font-size:0.8rem;">
-        Running total: <strong style="color:var(--cyan);">{{ totalSocialScore }} pts</strong>
-      </p>
+        <!-- Lockout banner -->
+        <div v-if="defenseVoteLock > 0" class="card text-center" style="margin-bottom:1.25rem;border-color:rgba(168,85,247,0.4);background:rgba(168,85,247,0.08);padding:1.25rem;">
+          <p style="font-size:1rem;font-weight:600;margin-bottom:0.5rem;">🎤 Listen to the defense...</p>
+          <p class="text-muted" style="font-size:0.85rem;">Voting opens in <strong style="color:#a855f7;font-size:1.1rem;">{{ defenseVoteLock }}s</strong></p>
+        </div>
+
+        <p v-else class="text-center text-muted" style="font-size:0.9rem;margin-bottom:1.25rem;">Listen to their argument, then cast your vote:</p>
+
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <button
+            class="btn btn--block"
+            :class="selectedAnswer === 'agree' ? 'btn--primary' : 'btn--ghost'"
+            :disabled="defenseVoteLock > 0"
+            style="justify-content:center;gap:0.75rem;padding:1.1rem;font-size:1.2rem;font-weight:700;"
+            @click="submitSocialAnswer('agree')"
+          >
+            👍 Agree
+          </button>
+          <button
+            class="btn btn--block"
+            :class="selectedAnswer === 'disagree' ? 'btn--primary' : 'btn--ghost'"
+            :disabled="defenseVoteLock > 0"
+            style="justify-content:center;gap:0.75rem;padding:1.1rem;font-size:1.2rem;font-weight:700;"
+            @click="submitSocialAnswer('disagree')"
+          >
+            👎 Disagree
+          </button>
+        </div>
+        <p class="text-center text-muted mt-lg" style="font-size:0.8rem;">
+          Running total: <strong style="color:var(--cyan);">{{ totalSocialScore }} pts</strong>
+        </p>
+      </template>
+
+      <!-- ── NORMAL QUESTION ──────────────────────────────────────────── -->
+      <template v-else>
+        <div style="display:flex; justify-content:center; margin-bottom:1.5rem;">
+          <OwlMascot size="lg" mood="thinking" :message="currentQuestion?.prompt" />
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.6rem;">
+          <button
+            v-for="opt in currentQuestion?.options"
+            :key="opt.id"
+            class="btn btn--block"
+            :class="selectedAnswer === opt.id ? 'btn--primary' : 'btn--ghost'"
+            style="justify-content:flex-start;gap:0.75rem;padding:0.85rem 1rem;font-size:1rem;"
+            @click="submitSocialAnswer(opt.id)"
+          >
+            <img v-if="opt.imageUrl" :src="opt.imageUrl"
+              style="width:36px;height:36px;object-fit:cover;border-radius:8px;flex-shrink:0;"/>
+            {{ opt.label }}
+          </button>
+        </div>
+        <p class="text-center text-muted mt-lg" style="font-size:0.8rem;">
+          Running total: <strong style="color:var(--cyan);">{{ totalSocialScore }} pts</strong>
+        </p>
+      </template>
     </div>
 
     <!-- ── SOCIAL WAITING (after submitting answer) ──────────────── -->
@@ -419,39 +522,84 @@ function isMyWrongAnswer(opt: any) {
 
     <!-- ── SOCIAL RESULT (after answer revealed) ─────────────────── -->
     <div v-if="screen === 'social-result'" style="padding-top:2rem;">
-      <div v-if="selectedAnswer === currentQuestion?.correctAnswerId" class="card text-center" style="margin-bottom:1.25rem;border-color:var(--green);background:rgba(16,185,129,0.08);">
-        <div style="font-size:3rem;margin-bottom:0.5rem;">🎯</div>
-        <h2 style="color:var(--green);">Correct! +{{ pointsEarned }} pts</h2>
-      </div>
-      <div v-else class="card text-center" style="margin-bottom:1.25rem;border-color:var(--red);background:rgba(239,68,68,0.05);">
-        <div style="font-size:3rem;margin-bottom:0.5rem;">❌</div>
-        <h2>Not quite!</h2>
-      </div>
 
-      <div class="card" style="margin-bottom:1.25rem;">
-        <p class="text-muted" style="font-size:0.8rem;margin-bottom:0.5rem;">Answer</p>
-        <p style="font-weight:700;">{{ revealData?.explanation }}</p>
-      </div>
-
-      <!-- Options colored -->
-      <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.25rem;">
-        <div
-          v-for="opt in currentQuestion?.options"
-          :key="opt.id"
-          style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-radius:10px;border:1px solid var(--border);"
-          :style="isCorrect(opt)
-            ? 'border-color:var(--green);background:rgba(16,185,129,0.1)'
-            : isMyWrongAnswer(opt)
-            ? 'border-color:var(--red);background:rgba(239,68,68,0.08)'
-            : 'opacity:0.4'"
-        >
-          <img v-if="opt.imageUrl" :src="opt.imageUrl"
-            style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0;"/>
-          <span style="font-weight:600;">{{ opt.label }}</span>
-          <span v-if="isCorrect(opt)" style="margin-left:auto;color:var(--green);">✓</span>
-          <span v-else-if="isMyWrongAnswer(opt)" style="margin-left:auto;color:var(--red);">✗</span>
+      <!-- Defense result: defender view -->
+      <template v-if="currentQuestion?.category === 'defense' && currentQuestion?.defensePlayerId === playerId">
+        <div class="card text-center" style="margin-bottom:1.25rem;border-color:var(--green);background:rgba(16,185,129,0.08);">
+          <div style="font-size:3rem;margin-bottom:0.5rem;">🎤</div>
+          <h2 style="color:var(--green);">+{{ pointsEarned }} pts for defending!</h2>
         </div>
-      </div>
+        <div class="card text-center" style="margin-bottom:1.25rem;">
+          <p class="text-muted" style="font-size:0.85rem;margin-bottom:0.5rem;">The vote</p>
+          <div style="display:flex;justify-content:center;gap:2rem;font-size:1.5rem;font-weight:900;">
+            <span>👍 {{ revealData?.defenseResult?.agreeCount ?? 0 }}</span>
+            <span>👎 {{ revealData?.defenseResult?.disagreeCount ?? 0 }}</span>
+          </div>
+          <p style="margin-top:0.75rem;font-weight:700;">
+            {{ revealData?.defenseResult?.defenderWon ? '🏆 The crowd agreed with you!' : revealData?.defenseResult?.agreeCount === revealData?.defenseResult?.disagreeCount ? "🤝 It's a tie!" : "🔥 They weren't convinced — but you still get your points!" }}
+          </p>
+        </div>
+      </template>
+
+      <!-- Defense result: voter view -->
+      <template v-else-if="currentQuestion?.category === 'defense'">
+        <div v-if="pointsEarned > 0" class="card text-center" style="margin-bottom:1.25rem;border-color:var(--green);background:rgba(16,185,129,0.08);">
+          <div style="font-size:3rem;margin-bottom:0.5rem;">🎯</div>
+          <h2 style="color:var(--green);">+{{ pointsEarned }} pts — you were on the winning side!</h2>
+        </div>
+        <div v-else class="card text-center" style="margin-bottom:1.25rem;border-color:var(--red);background:rgba(239,68,68,0.05);">
+          <div style="font-size:3rem;margin-bottom:0.5rem;">❌</div>
+          <h2>Wrong side this time!</h2>
+        </div>
+        <div class="card text-center" style="margin-bottom:1.25rem;">
+          <p class="text-muted" style="font-size:0.85rem;margin-bottom:0.5rem;">Final vote</p>
+          <div style="display:flex;justify-content:center;gap:2rem;font-size:1.5rem;font-weight:900;">
+            <span :style="revealData?.defenseResult?.agreeCount > revealData?.defenseResult?.disagreeCount ? 'color:var(--green)' : ''">
+              👍 {{ revealData?.defenseResult?.agreeCount ?? 0 }}
+            </span>
+            <span :style="revealData?.defenseResult?.disagreeCount > revealData?.defenseResult?.agreeCount ? 'color:var(--green)' : ''">
+              👎 {{ revealData?.defenseResult?.disagreeCount ?? 0 }}
+            </span>
+          </div>
+        </div>
+      </template>
+
+      <!-- Normal question result -->
+      <template v-else>
+        <div v-if="selectedAnswer === revealData?.correctAnswerId" class="card text-center" style="margin-bottom:1.25rem;border-color:var(--green);background:rgba(16,185,129,0.08);">
+          <div style="font-size:3rem;margin-bottom:0.5rem;">🎯</div>
+          <h2 style="color:var(--green);">Correct! +{{ pointsEarned }} pts</h2>
+        </div>
+        <div v-else class="card text-center" style="margin-bottom:1.25rem;border-color:var(--red);background:rgba(239,68,68,0.05);">
+          <div style="font-size:3rem;margin-bottom:0.5rem;">❌</div>
+          <h2>Not quite!</h2>
+        </div>
+
+        <div class="card" style="margin-bottom:1.25rem;">
+          <p class="text-muted" style="font-size:0.8rem;margin-bottom:0.5rem;">Answer</p>
+          <p style="font-weight:700;">{{ revealData?.explanation }}</p>
+        </div>
+
+        <!-- Options colored -->
+        <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.25rem;">
+          <div
+            v-for="opt in currentQuestion?.options"
+            :key="opt.id"
+            style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-radius:10px;border:1px solid var(--border);"
+            :style="isCorrect(opt)
+              ? 'border-color:var(--green);background:rgba(16,185,129,0.1)'
+              : isMyWrongAnswer(opt)
+              ? 'border-color:var(--red);background:rgba(239,68,68,0.08)'
+              : 'opacity:0.4'"
+          >
+            <img v-if="opt.imageUrl" :src="opt.imageUrl"
+              style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0;"/>
+            <span style="font-weight:600;">{{ opt.label }}</span>
+            <span v-if="isCorrect(opt)" style="margin-left:auto;color:var(--green);">✓</span>
+            <span v-else-if="isMyWrongAnswer(opt)" style="margin-left:auto;color:var(--red);">✗</span>
+          </div>
+        </div>
+      </template>
 
       <div class="card text-center">
         <p class="text-muted" style="font-size:0.85rem;">Total so far</p>
